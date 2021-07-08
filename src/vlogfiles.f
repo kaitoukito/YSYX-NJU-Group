@@ -1,11 +1,15 @@
 # common
 ./riscv_alu.sv
 ./riscv_alu_ctrl.sv
+./riscv_ctrl.sv
+./riscv_ram.sv
+./riscv_register_slices.sv
 
 # IF stage
 
 # ID stage
 ./riscv_register_file.sv
+./riscv_imm_gen.sv
 
 # EX stage
 
