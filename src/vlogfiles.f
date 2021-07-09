@@ -3,7 +3,9 @@
 ./riscv_alu_ctrl.sv
 ./riscv_ctrl.sv
 ./riscv_ram.sv
-./riscv_register_slices.sv
+./riscv_rs.sv
+./riscv_adder.sv
+./riscv_ext.sv
 
 # IF stage
 
