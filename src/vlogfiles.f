@@ -8,7 +8,7 @@
 # IF stage
 
 # ID stage
-./riscv_register_file.sv
+./riscv_rf.sv
 ./riscv_imm_gen.sv
 
 # EX stage
