@@ -1,20 +1,22 @@
+/// RV 64I Base Integer Instruction Set
 module riscv #(
-    parameter   DATA_WIDTH      = 32,
-    parameter   RF_ADDR_WIDTH   = $clog(32),
-    parameter   IMEM_ADDR_WIDTH = $clog(4096),
-    parameter   DMEM_ADDR_WIDTH = $clog(16384)
+    parameter   IBUS_DATA_WIDTH = 32,           // instruction bus data width
+    parameter   DBUS_DATA_WIDTH = 64,           // data bus data width
+    parameter   RF_ADDR_WIDTH   = $clog(32),    // register file address width
+    parameter   IMEM_ADDR_WIDTH = $clog(4096),  // instruction memory address width
+    parameter   DMEM_ADDR_WIDTH = $clog(16384)  // data memory address width
 ) (
     input   logic   clk,
     input   logic   rst_n,      // asynchronous reset
     input   logic   sft_rst     // synchronous reset
 );
 
-    logic   [DATA_WIDTH-1:0]        pc;
+    logic   [DBUS_DATA_WIDTH-1:0]   pc;
 
     // IF nets
 
     // IF to ID FFs
-    logic   [DATA_WIDTH-1:0]        instr_if2id_ff;
+    logic   [IBUS_DATA_WIDTH-1:0]   instr_if2id_ff;
 
     // ID nets
     logic   [6:0]                   opcode_id_stage;
@@ -25,32 +27,32 @@ module riscv #(
     logic                           mem_write_id_stage;
     logic                           branch_id_stage;
     logic   [1:0]                   alu_op_id_stage;
-    logic   [4:0]                   rd1_addr_id_stage;
-    logic   [4:0]                   rd2_addr_id_stage;
-    logic   [4:0]                   wr_addr_id_stage;
-    logic   [DATA_WIDTH-1:0]        wr_data_id_stage;
+    logic   [RF_ADDR_WIDTH-1:0]     rd1_addr_id_stage;
+    logic   [RF_ADDR_WIDTH-1:0]     rd2_addr_id_stage;
+    logic   [RF_ADDR_WIDTH-1:0]     wr_addr_id_stage;
+    logic   [DBUS_DATA_WIDTH-1:0]   wr_data_id_stage;
 
     // ID 2 EX FFs
-    logic   [DATA_WIDTH-1:0]        rd1_data_id2ex_ff;
-    logic   [DATA_WIDTH-1:0]        rd2_data_id2ex_ff;
+    logic   [DBUS_DATA_WIDTH-1:0]   rd1_data_id2ex_ff;
+    logic   [DBUS_DATA_WIDTH-1:0]   rd2_data_id2ex_ff;
 
     // EX nets
-    logic   [DATA_WIDTH-1:0]        a_ex_stage;
-    logic   [DATA_WIDTH-1:0]        b_ex_stage;
+    logic   [DBUS_DATA_WIDTH-1:0]   a_ex_stage;
+    logic   [DBUS_DATA_WIDTH-1:0]   b_ex_stage;
     logic   [3:0]                   alu_ctrl_ex_stage;
-    logic   [DATA_WIDTH-1:0]        alu_out_ex_stage;
+    logic   [DBUS_DATA_WIDTH-1:0]   alu_out_ex_stage;
     logic                           zero_ex_stage;
 
     // EX 2 MEM FFs
-    logic   [DATA_WIDTH-1:0]        alu_out_ex2mem_ff;
+    logic   [DBUS_DATA_WIDTH-1:0]   alu_out_ex2mem_ff;
 
     // MEM nets
     logic   [DMEM_ADDR_WIDTH-1:0]   dmem_addr_mem_stage;
-    logic   [DATA_WIDTH-1:0]        dmem_wr_data_mem_stage;
+    logic   [DBUS_DATA_WIDTH-1:0]   dmem_wr_data_mem_stage;
 
     // MEM 2 WB FFs
-    logic   [DATA_WIDTH-1:0]        dmem_rd_data_mem2wb_ff;
-    logic   [DATA_WIDTH-1:0]        alu_out_mem2wb_ff;
+    logic   [DBUS_DATA_WIDTH-1:0]   dmem_rd_data_mem2wb_ff;
+    logic   [DBUS_DATA_WIDTH-1:0]   alu_out_mem2wb_ff;
 
     // WB nets
 
@@ -60,14 +62,14 @@ module riscv #(
 
     // instruction memory, totally 32KiB
     riscv_ram #(
-        .DATA_WIDTH (DATA_WIDTH         ),
+        .DATA_WIDTH (DBUS_DATA_WIDTH    ),
         .ADDR_WIDTH (IMEM_ADDR_WIDTH    )
     ) U_RISCV_IMEM (
         .clk        (clk                ),
-        .cs         (1'b1               ),
-        .we         (1'b0               ),
-        .addr       (pc[ADDR_WIDTH-1:0] ),
-        .wr_data    ({ADDR_WIDTH{1'b0}} ),
+        .cs         (),
+        .we         (),
+        .addr       (pc[IMEM_ADDR_WIDTH-1:0]),
+        .wr_data    (),
         .rd_data    (instr_if2id_ff     )
     );
 
@@ -89,7 +91,7 @@ module riscv #(
     )
 
     riscv_rf #(
-        .DATA_WIDTH (DATA_WIDTH         ),
+        .DATA_WIDTH (DBUS_DATA_WIDTH    ),
         .ADDR_WIDTH (RF_ADDR_WIDTH      )
     ) U_RISCV_RF (
         .clk        (clk                ),
@@ -109,7 +111,7 @@ module riscv #(
     //----------------------------------------
 
     riscv_alu #(
-        .WIDTH      (64),
+        .WIDTH      (DBUS_DATA_WIDTH    )
     ) U_RISCV_ALU (
         .a          (a_ex_stage         ),
         .b          (b_ex_stage         ),
@@ -124,7 +126,7 @@ module riscv #(
 
     // data memory, totally 128KiB
     riscv_ram #(
-        .DATA_WIDTH (64                 ),
+        .DATA_WIDTH (DBUS_DATA_WIDTH    ),
         .ADDR_WIDTH (DMEM_ADDR_WIDTH    )
     ) U_RISCV_DMEM (
         .clk        (clk                ),

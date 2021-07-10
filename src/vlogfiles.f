@@ -1,3 +1,6 @@
+# define
+./riscv_define.svh
+
 # common
 ./riscv_alu.sv
 ./riscv_alu_ctrl.sv
@@ -21,3 +24,6 @@
 
 # top
 ./riscv.sv
+
+#undef
+./riscv_undef.svh
