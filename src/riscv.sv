@@ -18,6 +18,7 @@ module riscv #(
     logic   [DBUS_DATA_WIDTH-1:0]   pc;
 
     // IF nets
+    logic   [DBUS_DATA_WIDTH-1:0]   pc_seq_if_stage;
 
     // IF to ID FFs
     logic   [IBUS_DATA_WIDTH-1:0]   instr_if2id_ff;
@@ -33,21 +34,33 @@ module riscv #(
     logic   [1:0]                   alu_op_id_stage;
     logic   [RF_ADDR_WIDTH-1:0]     rf_rd1_addr_id_stage;
     logic   [RF_ADDR_WIDTH-1:0]     rf_rd2_addr_id_stage;
+    logic   [3:0]                   func_code_id_stage;
+    logic   [3:0]                   alu_ctrl_id_stage;
+    logic   [DBUS_DATA_WIDTH-1:0]   imm_id_stage;
 
     // ID 2 EX FFs
     logic   [DBUS_DATA_WIDTH-1:0]   rf_rd1_data_id2ex_ff;
     logic   [DBUS_DATA_WIDTH-1:0]   rf_rd2_data_id2ex_ff;
     logic   [DBUS_DATA_WIDTH-1:0]   imm_id2ex_ff;
+    logic                           alu_src_id2ex_ff;
+    logic   [3:0]                   alu_ctrl_id2ex_ff;
+    logic   [DBUS_DATA_WIDTH-1:0]   pc_id2ex_ff;
+    logic                           branch_id2ex_ff;
+    logic                           pc_branch_id2ex_ff;
 
     // EX nets
-    logic   [DBUS_DATA_WIDTH-1:0]   a_ex_stage;
-    logic   [DBUS_DATA_WIDTH-1:0]   b_ex_stage;
-    logic   [3:0]                   alu_ctrl_ex_stage;
+    logic   [DBUS_DATA_WIDTH-1:0]   alu_a_ex_stage;
+    logic   [DBUS_DATA_WIDTH-1:0]   alu_b_ex_stage;
     logic   [DBUS_DATA_WIDTH-1:0]   alu_out_ex_stage;
     logic                           zero_ex_stage;
+    logic   [DBUS_DATA_WIDTH-1:0]   adder_b_ex_stage;
+    logic   [DBUS_DATA_WIDTH-1:0]   adder_s_ex_stage;
+    logic                           pc_sel_ex_stage;
 
     // EX 2 MEM FFs
     logic   [DBUS_DATA_WIDTH-1:0]   alu_out_ex2mem_ff;
+    logic                           mem_read_ex2mem_ff;
+    logic                           mem_write_ex2mem_ff;
 
     // MEM nets
     logic   [DMEM_ADDR_WIDTH-1:0]   dmem_addr_mem_stage;
@@ -56,15 +69,18 @@ module riscv #(
     // MEM 2 WB FFs
     logic   [DBUS_DATA_WIDTH-1:0]   dmem_rd_data_mem2wb_ff;
     logic   [DBUS_DATA_WIDTH-1:0]   alu_out_mem2wb_ff;
+    logic                           mem2reg_mem2wb_ff;
+    logic                           reg_write_mem2wb_ff;
 
     // WB nets
     logic   [RF_ADDR_WIDTH-1:0]     rf_wr_addr_wb_stage;
-    logic                           rf_wr_en_wb_stage;
     logic   [DBUS_DATA_WIDTH-1:0]   rf_wr_data_wb_stage;
 
     //----------------------------------------
     // Implementations
     //----------------------------------------
+
+    assign pc_sel_ex_stage = branch_id2ex_ff & zero_ex_stage;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -73,8 +89,11 @@ module riscv #(
         else if (sft_rst) begin
             pc <= 'd0;
         end
+        else if (pc_sel_ex_stage) begin
+            pc <= pc_branch_id2ex_ff;
+        end
         else begin
-            pc <= pc + 4;
+            pc <= pc_seq_if_stage;
         end
     end
 
@@ -98,9 +117,9 @@ module riscv #(
     riscv_adder #(
         .DATA_WIDTH (DBUS_DATA_WIDTH    )
     ) U_RISCV_ADDER_IF (
-        .a          (),
-        .b          (),
-        .s          ()
+        .a          (pc                 ), // I
+        .b          (64'd4              ), // I
+        .s          (pc_seq_if_stage    )  // O
     );
 
     //----------------------------------------
@@ -128,45 +147,70 @@ module riscv #(
         .ADDR_WIDTH (RF_ADDR_WIDTH      )
     ) U_RISCV_RF (
         .clk        (clk                ),
-        .rd1_addr   (rf_rd1_addr_id_stage),
-        .rd1_en     (1'b1               ),
-        .rd1_data   (rf_rd1_data_id2ex_ff),
-        .rd2_addr   (rf_rd2_addr_id_stage),
-        .rd2_en     (1'b1               ),
-        .rd2_data   (rf_rd2_data_id2ex_ff),
-        .wr_addr    (rf_wr_addr_wb_stage),
-        .wr_en      (rf_wr_en_wb_stage  ),
-        .wr_data    (rf_wr_data_wb_stage)
+        .rd1_addr   (rf_rd1_addr_id_stage), // I
+        .rd1_en     (1'b1               ), // I
+        .rd1_data   (rf_rd1_data_id2ex_ff), // O
+        .rd2_addr   (rf_rd2_addr_id_stage), // I
+        .rd2_en     (1'b1               ), // I
+        .rd2_data   (rf_rd2_data_id2ex_ff), // O
+        .wr_addr    (rf_wr_addr_wb_stage), // I
+        .wr_en      (reg_write_mem2wb_ff), // I
+        .wr_data    (rf_wr_data_wb_stage)  // I
     );
 
     riscv_imm_gen #(
         .IBUS_DATA_WIDTH(IBUS_DATA_WIDTH),
         .DBUS_DATA_WIDTH(DBUS_DATA_WIDTH)
-) (
+    ) U_RISCV_IMM_GEN (
         .instr      (instr_if2id_ff     ), // I
-        .imm        (imm_id2ex_ff       )  // O
-);
+        .imm        (imm_id_stage       )  // O
+    );
+
+    assign func_code_id_stage = {instr_if2id_ff[30], instr_if2id_ff[14:12]};
+
+    riscv_alu_ctrl (
+        .alu_op     (alu_op_id_stage    ), // I
+        .func_code  (func_code_id_stage ), // I
+        .alu_ctrl   (alu_ctrl_id_stage  )  // O
+    );
+
+    // generate FFs of ID 2 EX stage
+    module riscv_rs #(
+        .DATA_WIDTH (4)
+    ) U_RISCV_RS_ID2EX (
+        .clk        (clk                ),
+        .rst_n      (rst_n              ),
+        .sft_rst    (sft_rst            ),
+        .din        (alu_ctrl_id_stage),
+        .en         (1'b1               ),
+        .dout       (alu_ctrl_id2ex_ff)
+    );
 
     //----------------------------------------
     // EX stage
     //----------------------------------------
 
+    assign alu_a_ex_stage = rf_rd1_data_id2ex_ff;
+    assign alu_b_ex_stage = alu_src_id2ex_ff ? imm_id2ex_ff : rf_rd2_data_id2ex_ff;
+
     riscv_alu #(
         .WIDTH      (DBUS_DATA_WIDTH    )
     ) U_RISCV_ALU (
-        .a          (a_ex_stage         ),
-        .b          (b_ex_stage         ),
-        .alu_ctrl   (alu_ctrl_ex_stage  ),
-        .alu_out    (alu_out_ex_stage   ),
-        .zero       (zero_ex_stage      )
+        .a          (alu_a_ex_stage     ), // I
+        .b          (alu_b_ex_stage     ), // I
+        .alu_ctrl   (alu_ctrl_id2ex_ff  ), // I
+        .alu_out    (alu_out_ex_stage   ), // O
+        .zero       (zero_ex_stage      )  // O
     )
+
+    assign adder_b_ex_stage = {imm_id2ex_ff[DBUS_DATA_WIDTH-2:0], 1'b0};
 
     riscv_adder #(
         .DATA_WIDTH (DBUS_DATA_WIDTH    )
     ) U_RISCV_ADDER_EX (
-        .a          (),
-        .b          (),
-        .s          ()
+        .a          (pc_id2ex_ff        ), // I
+        .b          (adder_b_ex_stage   ), // I
+        .s          (adder_s_ex_stage   )  // O
     );
 
     //----------------------------------------
@@ -179,15 +223,17 @@ module riscv #(
         .ADDR_WIDTH (DMEM_ADDR_WIDTH    )
     ) U_RISCV_DMEM (
         .clk        (clk                ),
-        .cs         (),
-        .we         (),
-        .addr       (dmem_addr_mem_stage),
-        .wr_data    (dmem_wr_data_mem_stage),
-        .rd_data    (dmem_rd_data_mem2wb_ff)
+        .cs         (mem_read_ex2mem_ff | mem_write_ex2mem_ff), // I
+        .we         (mem_write_ex2mem_ff), // I
+        .addr       (dmem_addr_mem_stage[DMEM_ADDR_WIDTH-1:0]), // I
+        .wr_data    (dmem_wr_data_mem_stage), // I
+        .rd_data    (dmem_rd_data_mem2wb_ff)  // O
     );
 
     //----------------------------------------
     // WB stage
     //----------------------------------------
+
+    assign rf_wr_data_wb_stage = mem2reg_mem2wb_ff ? dmem_rd_data_mem2wb_ff : alu_out_mem2wb_ff;
 
 endmodule
