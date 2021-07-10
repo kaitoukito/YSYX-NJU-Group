@@ -17,6 +17,7 @@
 ./riscv_imm_gen.sv
 
 # EX stage
+./riscv_fwd_unit.sv
 
 # MEM stage
 

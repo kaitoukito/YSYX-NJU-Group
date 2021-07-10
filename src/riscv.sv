@@ -141,7 +141,7 @@ module riscv #(
         .mem_write  (mem_write_id_stage ), // O
         .branch     (branch_id_stage    ), // O
         .alu_op     (alu_op_id_stage    )  // O
-    )
+    );
 
     assign rf_rd1_addr_id_stage = instr_if2id_ff[19:15];
     assign rf_rd2_addr_id_stage = instr_if2id_ff[24:20];
