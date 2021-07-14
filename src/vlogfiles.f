@@ -15,6 +15,7 @@
 # ID stage
 ./riscv_rf.sv
 ./riscv_imm_gen.sv
+./riscv_hzd_detect_unit.sv
 
 # EX stage
 ./riscv_fwd_unit.sv
