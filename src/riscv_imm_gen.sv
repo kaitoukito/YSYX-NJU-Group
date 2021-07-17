@@ -7,7 +7,7 @@ module riscv_imm_gen #(
 );
 
     logic   opcode;
-
+	
     logic   is_rtype;
     logic   is_itype;
     logic   is_stype;
@@ -28,16 +28,28 @@ module riscv_imm_gen #(
     logic   [DBUS_DATA_WIDTH-1:0]   imm_sext_jtype;
 
     // TODO
-    assign opcode = instr[6:0];
-
-    assign is_rtype;
+	assign is_rtype;
     assign is_itype;
     assign is_stype;
     assign is_btyep;
     assign is_utype;
     assign is_jtype;
+	
+	always_comb begin
+        case (opcode)
+			`OP					:	{is_jtype, is_utype, is_btyep, is_stype, is_itype, is_rtype} = 6'b00_0001;
+			`JALR,`LOAD,`OP_IMM	:   {is_jtype, is_utype, is_btyep, is_stype, is_itype, is_rtype} = 6'b00_0010;
+            `STORE  			:   {is_jtype, is_utype, is_btyep, is_stype, is_itype, is_rtype} = 6'b00_0100;
+            `BRANCH 			:   {is_jtype, is_utype, is_btyep, is_stype, is_itype, is_rtype} = 6'b00_1000;
+            `LUI,`AUIPC  		:   {is_jtype, is_utype, is_btyep, is_stype, is_itype, is_rtype} = 6'b01_0000;
+            `JAL  				:   {is_jtype, is_utype, is_btyep, is_stype, is_itype, is_rtype} = 6'b10_0000;
+            default     		:   {is_jtype, is_utype, is_btyep, is_stype, is_itype, is_rtype} = 6'b00_0000;
+        endcase
+    end
+	
+    assign opcode = instr[6:0];
 
-    assign imm_itype = instr[31:20];
+    assign imm_itype = (instr[14:12] == 3'b101)? {7'b0,instr[24:20]}:instr[31:20];
     assign imm_stype = {instr[31:25], instr[11:7]};
     assign imm_btype = {instr[31], instr[7], instr[30:25], instr[11:8]};
     assign imm_utype = instr[31:12];
