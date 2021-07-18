@@ -9,7 +9,7 @@ module riscv_ctrl (
     output  logic           branch,
 	output  logic	[1:0]	pc_src_ctrl,//10寄存器加立即数计算结果跳转,01无条件跳转,00无强制跳转
     output  logic   [1:0]   alu_op
-);W
+);
 
     // TODO
     always_comb begin

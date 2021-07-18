@@ -28,12 +28,13 @@ module riscv_imm_gen #(
     logic   [DBUS_DATA_WIDTH-1:0]   imm_sext_jtype;
 
     // TODO
-	assign is_rtype;
-    assign is_itype;
-    assign is_stype;
-    assign is_btyep;
-    assign is_utype;
-    assign is_jtype;
+	
+	// assign is_rtype;
+    // assign is_itype;
+    // assign is_stype;
+    // assign is_btyep;
+    // assign is_utype;
+    // assign is_jtype;
 	
 	always_comb begin
         case (opcode)
